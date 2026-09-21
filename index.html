@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>피복아크용접 퀴즈</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card-bg: #ffffff; --text: #1a1d21; --text-muted: #5b6470;
+    --border: #dfe3e8; --primary: #1f6feb; --primary-hover: #1657c0; --primary-text: #ffffff;
+    --correct: #1a7f37; --correct-bg: #e6f4ea; --wrong: #c0392b; --wrong-bg: #fdecea;
+    --tab-bg: #e9ecef; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; line-height:1.5; padding:16px; }
+  .wrap { max-width:640px; margin:0 auto; }
+  h1 { font-size:1.3rem; margin:4px 0 16px; text-align:center; }
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; box-shadow:var(--shadow); }
+  .hidden { display:none !important; }
+  label { font-weight:600; display:block; margin-bottom:8px; }
+  input[type="text"] { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:1rem; }
+  button.primary { background:var(--primary); color:var(--primary-text); border:none; padding:12px 18px; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; width:100%; margin-top:8px; }
+  button.primary:hover { background:var(--primary-hover); }
+  button.primary:disabled { opacity:0.6; cursor:not-allowed; }
+  .q-block { margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  .q-block:last-child { border-bottom:none; }
+  .q-title { font-weight:700; margin-bottom:10px; }
+  .opt { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border-radius:8px; margin-bottom:6px; cursor:pointer; }
+  .opt:hover { background:var(--tab-bg); }
+  .opt input { margin-top:3px; }
+  .score-big { font-size:2.2rem; font-weight:800; text-align:center; color:var(--primary); margin:6px 0 2px; }
+  .score-sub { text-align:center; color:var(--text-muted); margin-bottom:16px; }
+  .review-item { padding:10px 12px; border-radius:8px; margin-bottom:8px; font-size:0.92rem; }
+  .review-correct { background:var(--correct-bg); color:var(--correct); }
+  .review-wrong { background:var(--wrong-bg); color:var(--wrong); }
+  .muted { color:var(--text-muted); font-size:0.85rem; }
+  .status-box { text-align:center; padding:14px; border-radius:10px; margin-bottom:14px; font-weight:600; }
+  .status-ok { background:var(--correct-bg); color:var(--correct); }
+  .status-fail { background:var(--wrong-bg); color:var(--wrong); }
+  .status-sending { background:var(--tab-bg); color:var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔧 피복아크용접 퀴즈</h1>
+
+  <div id="studentStart" class="card">
+    <label for="nameInput">이름을 입력하세요</label>
+    <input type="text" id="nameInput" placeholder="예: 홍길동" autocomplete="off">
+    <button class="primary" onclick="startQuiz()">퀴즈 시작하기</button>
+    <p class="muted" style="margin-top:10px;">총 10문제 · 로그인 불필요 · 제출하면 자동으로 선생님께 전송됩니다</p>
+  </div>
+
+  <div id="quizArea" class="card hidden"></div>
+  <button id="submitBtn" class="primary hidden" onclick="submitQuiz()">제출하고 채점하기</button>
+
+  <div id="resultArea" class="card hidden"></div>
+</div>
+
+<script>
+// ⚠️ 아래 URL을 구글 Apps Script 배포 후 나온 웹앱 URL로 반드시 교체하세요.
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx67X1ilm0PHzMeVW-A7s4eePoZcZSWYm529TyMh-lxQhTnNnuy7MdOp8pVlK0Zc1vL/exec";
+
+const QUESTIONS = [
+  { q:"피복아크용접에서 아크를 발생시키는 두 가지 방법은?", options:["접촉법과 홀더법","접촉법과 스크래치법","직류법과 교류법","정극성과 역극성"], answer:1, explain:"아크 발생법에는 접촉법과 스크래치법이 있습니다." },
+  { q:"피복아크용접봉의 피복제 역할이 아닌 것은?", options:["아크를 안정시킨다","용착금속의 급랭을 방지한다","용접봉을 자석화한다","슬래그를 형성하여 용착금속을 보호한다"], answer:2, explain:"피복제는 아크 안정, 급랭 방지, 슬래그 형성/보호 등의 역할을 하며 자석화는 해당 없습니다." },
+  { q:"직류 정극성(DCSP)에서 용접봉(전극)은 어느 극에 연결되는가?", options:["(+)극","(-)극","교류이므로 해당 없음","극성과 무관"], answer:1, explain:"직류 정극성은 모재(+), 용접봉(-)으로 연결되며 용입이 깊습니다." },
+  { q:"피복아크용접에서 용입이 가장 깊은 극성은?", options:["직류 정극성(DCSP)","직류 역극성(DCRP)","교류","극성과 무관하다"], answer:0, explain:"직류 정극성(DCSP)은 용입이 깊고, 역극성(DCRP)은 비드 폭이 넓고 용입이 얕습니다." },
+  { q:"아크 길이가 길어질 때 나타나는 현상으로 옳지 않은 것은?", options:["아크 전압 상승","스패터 발생 증가","비드 폭이 좁아짐","기공 발생 가능성 증가"], answer:2, explain:"아크 길이가 길어지면 비드 폭은 오히려 넓어지고 불안정해집니다." },
+  { q:"피복아크용접봉 기호 E4316에서 '43'이 의미하는 것은?", options:["피복제의 종류","용착금속의 최소 인장강도(kgf/mm²)","용접 자세","전류의 종류"], answer:1, explain:"43은 용착금속의 최소 인장강도(약 43kgf/mm²)를 의미합니다." },
+  { q:"저수소계(E4316) 용접봉의 특징으로 옳은 것은?", options:["기계적 성질이 우수하고 균열 감수성이 낮다","아크가 가장 불안정하다","사용 전 건조가 필요 없다","슬래그가 전혀 형성되지 않는다"], answer:0, explain:"저수소계는 균열 감수성이 낮고 기계적 성질이 우수하지만 사용 전 건조가 필요합니다." },
+  { q:"용접 결함 중 '언더컷'의 주된 원인은?", options:["용접전류가 너무 낮을 때","용접전류가 너무 높거나 아크길이가 길 때","용접속도가 너무 느릴 때","모재가 두꺼울 때"], answer:1, explain:"언더컷은 전류 과다, 아크 길이 과다 등으로 모재가 파여 생기는 결함입니다." },
+  { q:"용접 작업 중 감전 방지를 위해 착용해야 하는 것은?", options:["마른 가죽장갑","젖은 면장갑","맨손","고무장갑만 착용"], answer:0, explain:"감전 방지를 위해 마르고 절연성이 있는 가죽장갑을 착용해야 합니다." },
+  { q:"용접기의 무부하전압이 지나치게 높을 경우 발생할 수 있는 위험은?", options:["용입 부족","작업자 감전 위험 증가","슬래그 박리 불량","스패터 감소"], answer:1, explain:"무부하전압이 너무 높으면 작업자의 감전 위험이 커집니다." }
+];
+
+let currentAnswers = new Array(QUESTIONS.length).fill(null);
+let studentName = "";
+
+function startQuiz() {
+  const nameVal = document.getElementById('nameInput').value.trim();
+  if (!nameVal) { alert('이름을 입력해주세요.'); return; }
+  studentName = nameVal;
+  renderQuiz();
+  document.getElementById('studentStart').classList.add('hidden');
+  document.getElementById('quizArea').classList.remove('hidden');
+  document.getElementById('submitBtn').classList.remove('hidden');
+}
+
+function renderQuiz() {
+  const area = document.getElementById('quizArea');
+  area.innerHTML = '';
+  QUESTIONS.forEach((item, qi) => {
+    const block = document.createElement('div');
+    block.className = 'q-block';
+    const title = document.createElement('div');
+    title.className = 'q-title';
+    title.textContent = (qi+1) + '. ' + item.q;
+    block.appendChild(title);
+    item.options.forEach((opt, oi) => {
+      const label = document.createElement('label');
+      label.className = 'opt';
+      label.innerHTML = '<input type="radio" name="q'+qi+'" value="'+oi+'"> <span>'+opt+'</span>';
+      label.querySelector('input').addEventListener('change', () => { currentAnswers[qi] = oi; });
+      block.appendChild(label);
+    });
+    area.appendChild(block);
+  });
+}
+
+function submitQuiz() {
+  const unanswered = currentAnswers.findIndex(a => a === null);
+  if (unanswered !== -1) {
+    if (!confirm((unanswered+1)+'번 문제 등 아직 풀지 않은 문제가 있습니다. 그래도 제출할까요?')) return;
+  }
+
+  let score = 0;
+  const wrongList = [];
+  QUESTIONS.forEach((item, qi) => {
+    if (currentAnswers[qi] === item.answer) score++;
+    else wrongList.push(qi+1);
+  });
+
+  document.getElementById('quizArea').classList.add('hidden');
+  document.getElementById('submitBtn').classList.add('hidden');
+
+  const resArea = document.getElementById('resultArea');
+  resArea.classList.remove('hidden');
+
+  let html = '<div id="statusBox" class="status-box status-sending">선생님께 결과 전송 중...</div>';
+  html += '<div class="score-big">'+score+' / '+QUESTIONS.length+'</div>';
+  html += '<div class="score-sub">'+studentName+'님의 점수입니다</div>';
+  QUESTIONS.forEach((item, qi) => {
+    const isCorrect = currentAnswers[qi] === item.answer;
+    html += '<div class="review-item '+(isCorrect?'review-correct':'review-wrong')+'">';
+    html += (qi+1)+'. '+(isCorrect?'정답':'오답')+' — 정답: '+item.options[item.answer];
+    if (!isCorrect) html += '<br><span class="muted" style="color:inherit;">해설: '+item.explain+'</span>';
+    html += '</div>';
+  });
+  resArea.innerHTML = html;
+
+  const payload = { name: studentName, score: score, total: QUESTIONS.length, wrong: wrongList };
+
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }).then(() => {
+    document.getElementById('statusBox').className = 'status-box status-ok';
+    document.getElementById('statusBox').textContent = '✅ 선생님께 결과가 전송되었습니다';
+  }).catch(() => {
+    document.getElementById('statusBox').className = 'status-box status-fail';
+    document.getElementById('statusBox').textContent = '⚠️ 전송 실패 — 인터넷 연결을 확인하고 선생님께 알려주세요';
+  });
+}
+</script>
+</body>
+</html>
